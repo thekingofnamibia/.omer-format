@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>.omer viewer</title>
+<style>
+  :root {
+    --bg: #1b1815;
+    --panel: #242019;
+    --panel-line: #3a342a;
+    --safelight: #d9761f;
+    --safelight-dim: #8a5220;
+    --paper: #ece6d8;
+    --paper-dim: #a89d87;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --serif: "Source Serif 4", Georgia, serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--paper);
+    font-family: var(--serif);
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px 60px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 34px;
+    max-width: 480px;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    margin: 0 0 10px;
+    color: var(--paper);
+  }
+  header h1 span { color: var(--safelight); }
+
+  header p {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--paper-dim);
+    margin: 0;
+  }
+
+  #dropzone {
+    width: 100%;
+    max-width: 640px;
+    border: 1px dashed var(--panel-line);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: 40px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  #dropzone.drag, #convertDropzone.drag {
+    border-color: var(--safelight);
+    background: #2a2419;
+  }
+
+  #dropzone p, #convertDropzone p {
+    margin: 0 0 14px;
+    font-size: 15px;
+    color: var(--paper-dim);
+  }
+
+  #dropzone button, #convertDropzone button {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: transparent;
+    color: var(--safelight);
+    border: 1px solid var(--safelight-dim);
+    padding: 9px 18px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  #dropzone button:hover, #convertDropzone button:hover { background: rgba(217, 118, 31, 0.1); }
+
+  #convertDropzone {
+    width: 100%;
+    max-width: 640px;
+    border: 1px dashed var(--panel-line);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: 40px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  #fileInput { display: none; }
+
+  #error {
+    max-width: 640px;
+    width: 100%;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid #6b2f24;
+    background: #2a1c17;
+    color: #e8b8a8;
+    font-family: var(--mono);
+    font-size: 13px;
+    border-radius: 2px;
+    display: none;
+  }
+
+  #result {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 30px;
+    display: none;
+  }
+
+  .frame {
+    background: #000;
+    border: 1px solid var(--panel-line);
+    padding: 14px;
+    display: flex;
+    justify-content: center;
+  }
+
+  #canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  #meta {
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--paper-dim);
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 18px;
+    border-top: 1px solid var(--panel-line);
+    padding-top: 16px;
+  }
+
+  #meta .k { color: var(--safelight); }
+  #meta .v { color: var(--paper); word-break: break-word; }
+
+  #actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  #actions button {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: transparent;
+    color: var(--paper-dim);
+    border: 1px solid var(--panel-line);
+    padding: 8px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  #actions button:hover { color: var(--paper); border-color: var(--paper-dim); }
+
+  #tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 24px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 3px;
+    padding: 3px;
+  }
+
+  #tabs button {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: transparent;
+    color: var(--paper-dim);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  #tabs button.active {
+    background: var(--safelight-dim);
+    color: var(--paper);
+  }
+
+  .panel { display: none; width: 100%; flex-direction: column; align-items: center; }
+  .panel.active { display: flex; }
+
+  #convertMeta {
+    max-width: 640px;
+    width: 100%;
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--paper-dim);
+  }
+
+  #convertMeta label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--safelight);
+  }
+
+  #convertMeta input[type="text"] {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    color: var(--paper);
+    font-family: var(--serif);
+    font-size: 14px;
+    padding: 9px 10px;
+    border-radius: 2px;
+  }
+
+  #convertMeta input[type="text"]:focus {
+    outline: none;
+    border-color: var(--safelight-dim);
+  }
+
+  #convertPreview {
+    display: none;
+    width: 100%;
+    max-width: 640px;
+    margin-top: 20px;
+  }
+
+  #convertStats {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--paper-dim);
+    margin-top: 14px;
+    line-height: 1.7;
+  }
+  #convertStats .k { color: var(--safelight); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>.<span>omer</span> viewer</h1>
+  <p>A small binary image format with its own header, metadata block, and optional zlib compression &mdash; parsed here entirely in the browser.</p>
+</header>
+
+<div id="tabs">
+  <button id="tabView" class="active">View .omer</button>
+  <button id="tabConvert">Convert to .omer</button>
+</div>
+
+<div id="error"></div>
+
+<!-- VIEW PANEL -->
+<div id="viewPanel" class="panel active">
+  <div id="dropzone">
+    <p>Drop a .omer file here, or</p>
+    <button id="browseBtn">Choose file</button>
+    <input type="file" id="fileInput" accept=".omer">
+  </div>
+
+  <div id="result">
+    <div class="frame">
+      <canvas id="canvas"></canvas>
+    </div>
+    <div id="meta"></div>
+    <div id="actions">
+      <button id="downloadPng">Save as PNG</button>
+      <button id="loadAnother">Load another .omer</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONVERT PANEL -->
+<div id="convertPanel" class="panel">
+  <div id="convertDropzone" class="dz">
+    <p>Drop a photo here (jpg, png, bmp, webp, gif&hellip;), or</p>
+    <button id="convertBrowseBtn">Choose image</button>
+    <input type="file" id="convertFileInput" accept="image/*">
+  </div>
+
+  <div id="convertMeta" style="display:none;">
+    <label for="titleInput">Title (stored in the .omer metadata)</label>
+    <input type="text" id="titleInput" placeholder="My Photo">
+  </div>
+
+  <div id="convertPreview">
+    <div class="frame">
+      <canvas id="convertCanvas"></canvas>
+    </div>
+    <div id="convertStats"></div>
+    <div id="actions">
+      <button id="downloadOmer">Download .omer</button>
+      <button id="convertAnother">Convert another image</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const browseBtn = document.getElementById('browseBtn');
+const errorBox = document.getElementById('error');
+const resultBox = document.getElementById('result');
+const canvas = document.getElementById('canvas');
+const metaBox = document.getElementById('meta');
+const downloadBtn = document.getElementById('downloadPng');
+const loadAnotherBtn = document.getElementById('loadAnother');
+
+let currentFilename = 'image';
+
+browseBtn.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('click', (e) => { if (e.target === browseBtn) return; fileInput.click(); });
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+['dragenter', 'dragover'].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag'); })
+);
+['dragleave', 'drop'].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); })
+);
+dropzone.addEventListener('drop', (e) => {
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+loadAnotherBtn.addEventListener('click', () => {
+  resultBox.style.display = 'none';
+  errorBox.style.display = 'none';
+  fileInput.value = '';
+});
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.style.display = 'block';
+  resultBox.style.display = 'none';
+}
+
+// zlib inflate via DecompressionStream (built into modern browsers).
+// zlib's header (2 bytes) + trailer (4-byte adler32) wrap raw deflate data,
+// which is exactly what DecompressionStream('deflate') expects and what
+// Python's zlib.compress() produces.
+async function inflateAsync(bytes) {
+  const ds = new DecompressionStream('deflate');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  const out = await new Response(stream).arrayBuffer();
+  return new Uint8Array(out);
+}
+async function handleFile(file) {
+  errorBox.style.display = 'none';
+  currentFilename = file.name.replace(/\.omer$/i, '') || 'image';
+  const buf = new Uint8Array(await file.arrayBuffer());
+
+  try {
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    const magic = String.fromCharCode(buf[0], buf[1], buf[2], buf[3]);
+    if (magic !== 'OMER') throw new Error(`bad magic bytes (got "${magic}")`);
+
+    const version = buf[4];
+    if (version !== 1) throw new Error(`unsupported version ${version}`);
+
+    const width = dv.getUint32(5, true);
+    const height = dv.getUint32(9, true);
+    const channels = buf[13];
+    const compression = buf[14];
+    const metaLen = dv.getUint32(15, true);
+
+    let offset = 19;
+    const metaBytes = buf.slice(offset, offset + metaLen);
+    const meta = JSON.parse(new TextDecoder('utf-8').decode(metaBytes));
+    offset += metaLen;
+
+    const pixelLen = dv.getUint32(offset, true);
+    offset += 4;
+    const pixelBytes = buf.slice(offset, offset + pixelLen);
+
+    let raw;
+    if (compression === 1) {
+      raw = await inflateAsync(pixelBytes);
+    } else if (compression === 0) {
+      raw = pixelBytes;
+    } else {
+      throw new Error(`unknown compression method ${compression}`);
+    }
+
+    const expected = width * height * channels;
+    if (raw.length !== expected) {
+      throw new Error(`decompressed size mismatch (got ${raw.length}, expected ${expected})`);
+    }
+
+    render({ width, height, channels, compression, meta, raw, fileSize: buf.length, pixelLen });
+  } catch (err) {
+    showError('Could not read this file as .omer: ' + err.message);
+  }
+}
+
+function render(parsed) {
+  const { width, height, channels, compression, meta, raw, fileSize, pixelLen } = parsed;
+
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(width, height);
+
+  if (channels === 4) {
+    imgData.data.set(raw);
+  } else {
+    for (let i = 0, j = 0; i < raw.length; i += 3, j += 4) {
+      imgData.data[j] = raw[i];
+      imgData.data[j + 1] = raw[i + 1];
+      imgData.data[j + 2] = raw[i + 2];
+      imgData.data[j + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  metaBox.innerHTML = '';
+  const rows = [
+    ['dimensions', `${width} × ${height}`],
+    ['channels', channels === 4 ? '4 (RGBA)' : '3 (RGB)'],
+    ['compression', compression === 1 ? `zlib (${pixelLen} bytes)` : 'none'],
+    ['file size', `${fileSize.toLocaleString()} bytes`],
+  ];
+  for (const [k, v] of Object.entries(meta)) rows.push([k, v]);
+
+  for (const [k, v] of rows) {
+    const kEl = document.createElement('div');
+    kEl.className = 'k';
+    kEl.textContent = k;
+    const vEl = document.createElement('div');
+    vEl.className = 'v';
+    vEl.textContent = v;
+    metaBox.appendChild(kEl);
+    metaBox.appendChild(vEl);
+  }
+
+  resultBox.style.display = 'block';
+}
+
+downloadBtn.addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = currentFilename + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+// --- Tab switching ---
+const tabView = document.getElementById('tabView');
+const tabConvert = document.getElementById('tabConvert');
+const viewPanel = document.getElementById('viewPanel');
+const convertPanel = document.getElementById('convertPanel');
+
+function switchTab(which) {
+  errorBox.style.display = 'none';
+  tabView.classList.toggle('active', which === 'view');
+  tabConvert.classList.toggle('active', which === 'convert');
+  viewPanel.classList.toggle('active', which === 'view');
+  convertPanel.classList.toggle('active', which === 'convert');
+}
+tabView.addEventListener('click', () => switchTab('view'));
+tabConvert.addEventListener('click', () => switchTab('convert'));
+
+// --- Convert (image -> .omer) ---
+const convertDropzone = document.getElementById('convertDropzone');
+const convertFileInput = document.getElementById('convertFileInput');
+const convertBrowseBtn = document.getElementById('convertBrowseBtn');
+const convertMetaBox = document.getElementById('convertMeta');
+const titleInput = document.getElementById('titleInput');
+const convertPreview = document.getElementById('convertPreview');
+const convertCanvas = document.getElementById('convertCanvas');
+const convertStats = document.getElementById('convertStats');
+const downloadOmerBtn = document.getElementById('downloadOmer');
+const convertAnotherBtn = document.getElementById('convertAnother');
+
+let pendingOmerBlob = null;
+let pendingOmerName = 'image';
+let lastImage = null; // { width, height, channels, raw, sourceType }
+
+convertBrowseBtn.addEventListener('click', () => convertFileInput.click());
+convertDropzone.addEventListener('click', (e) => {
+  if (e.target === convertBrowseBtn) return;
+  convertFileInput.click();
+});
+convertFileInput.addEventListener('change', () => {
+  if (convertFileInput.files[0]) handleImageFile(convertFileInput.files[0]);
+});
+['dragenter', 'dragover'].forEach(evt =>
+  convertDropzone.addEventListener(evt, (e) => { e.preventDefault(); convertDropzone.classList.add('drag'); })
+);
+['dragleave', 'drop'].forEach(evt =>
+  convertDropzone.addEventListener(evt, (e) => { e.preventDefault(); convertDropzone.classList.remove('drag'); })
+);
+convertDropzone.addEventListener('drop', (e) => {
+  const file = e.dataTransfer.files[0];
+  if (file) handleImageFile(file);
+});
+
+convertAnotherBtn.addEventListener('click', () => {
+  convertPreview.style.display = 'none';
+  convertMetaBox.style.display = 'none';
+  errorBox.style.display = 'none';
+  convertFileInput.value = '';
+  pendingOmerBlob = null;
+  lastImage = null;
+});
+
+async function handleImageFile(file) {
+  errorBox.style.display = 'none';
+  pendingOmerName = file.name.replace(/\.[^.]+$/, '') || 'image';
+  titleInput.value = pendingOmerName;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const ctx = convertCanvas.getContext('2d');
+    convertCanvas.width = bitmap.width;
+    convertCanvas.height = bitmap.height;
+    ctx.drawImage(bitmap, 0, 0);
+
+    const imgData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+    const rgba = imgData.data;
+
+    // detect whether the image actually uses transparency
+    let hasAlpha = false;
+    for (let i = 3; i < rgba.length; i += 4) {
+      if (rgba[i] !== 255) { hasAlpha = true; break; }
+    }
+    const channels = hasAlpha ? 4 : 3;
+
+    let raw;
+    if (channels === 4) {
+      raw = new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength);
+    } else {
+      raw = new Uint8Array(bitmap.width * bitmap.height * 3);
+      for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+        raw[j] = rgba[i];
+        raw[j + 1] = rgba[i + 1];
+        raw[j + 2] = rgba[i + 2];
+      }
+    }
+
+    convertMetaBox.style.display = 'block';
+    convertPreview.style.display = 'block';
+
+    lastImage = { width: bitmap.width, height: bitmap.height, channels, raw, sourceType: file.type || 'unknown' };
+    await buildOmer(lastImage.width, lastImage.height, lastImage.channels, lastImage.raw, lastImage.sourceType);
+  } catch (err) {
+    showError('Could not read this image: ' + err.message);
+  }
+}
+
+// zlib deflate via CompressionStream — 'deflate' produces zlib-wrapped
+// output (RFC 1950), matching what Python's zlib.compress() writes and
+// what the viewer's inflateAsync() above expects.
+async function deflateAsync(bytes) {
+  const cs = new CompressionStream('deflate');
+  const stream = new Blob([bytes]).stream().pipeThrough(cs);
+  const out = await new Response(stream).arrayBuffer();
+  return new Uint8Array(out);
+}
+
+async function buildOmer(width, height, channels, raw, sourceType) {
+  const compressed = await deflateAsync(raw);
+  let pixelData, compression;
+  if (compressed.length < raw.length) {
+    pixelData = compressed;
+    compression = 1;
+  } else {
+    pixelData = raw;
+    compression = 0;
+  }
+
+  const meta = {
+    title: titleInput.value || pendingOmerName,
+    source_format: sourceType,
+  };
+  const metaBytes = new TextEncoder().encode(JSON.stringify(meta));
+
+  const headerLen = 4 + 1 + 4 + 4 + 1 + 1 + 4; // magic..metaLen field
+  const totalLen = headerLen + metaBytes.length + 4 + pixelData.length;
+
+  const out = new Uint8Array(totalLen);
+  const dv = new DataView(out.buffer);
+  let o = 0;
+
+  out.set([0x4F, 0x4D, 0x45, 0x52], o); o += 4;   // "OMER"
+  out[o] = 1; o += 1;                              // version
+  dv.setUint32(o, width, true); o += 4;
+  dv.setUint32(o, height, true); o += 4;
+  out[o] = channels; o += 1;
+  out[o] = compression; o += 1;
+  dv.setUint32(o, metaBytes.length, true); o += 4;
+  out.set(metaBytes, o); o += metaBytes.length;
+  dv.setUint32(o, pixelData.length, true); o += 4;
+  out.set(pixelData, o); o += pixelData.length;
+
+  pendingOmerBlob = new Blob([out], { type: 'application/octet-stream' });
+
+  convertStats.innerHTML = `
+    <div><span class="k">dimensions</span> ${width} × ${height}</div>
+    <div><span class="k">channels</span> ${channels === 4 ? '4 (RGBA)' : '3 (RGB)'}</div>
+    <div><span class="k">compression</span> ${compression ? `zlib (${pixelData.length.toLocaleString()} bytes)` : 'none'}</div>
+    <div><span class="k">.omer file size</span> ${totalLen.toLocaleString()} bytes</div>
+  `;
+}
+
+downloadOmerBtn.addEventListener('click', () => {
+  if (!pendingOmerBlob) return;
+  const link = document.createElement('a');
+  link.download = (titleInput.value || pendingOmerName).replace(/[^\w.-]+/g, '_') + '.omer';
+  link.href = URL.createObjectURL(pendingOmerBlob);
+  link.click();
+});
+
+titleInput.addEventListener('change', () => {
+  if (lastImage) {
+    buildOmer(lastImage.width, lastImage.height, lastImage.channels, lastImage.raw, lastImage.sourceType);
+  }
+});
+</script>
+
+</body>
+</html>

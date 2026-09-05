@@ -1,0 +1,18 @@
+# Python compile files & caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Editor & OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Project-specific output files
+*.omer
